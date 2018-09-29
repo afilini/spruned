@@ -45,6 +45,9 @@ estimatesmartfee conf_target ("estimate_mode")
 == Network ==
 getpeerinfo
 
+== Wallet == 
+importaddress
+
 """ % (spruned_version, bitcoind_version)
 
 
@@ -121,6 +124,7 @@ class JSONRPCServer:
         methods.add(self.getmempoolinfo)
         methods.add(self.getrawmempool)
         methods.add(self.stop)
+        methods.add(self.importaddress)
         methods.add(self.dev_memorysummary, name="dev-gc-stats")
         methods.add(self.dev_collect, name="dev-gc-collect")
         return await web.TCPSite(runner, host=self.host, port=self.port).start()
@@ -289,6 +293,24 @@ class JSONRPCServer:
             raise JsonRpcServerException(
                 code=-8,
                 message="server error: try again"
+            )
+        return response
+
+    async def importaddress(self, address: str):
+        try:
+            address = address.strip()
+            response = await self.vo_service.importaddress(address)
+        except exceptions.DuplicateError:
+            Logger.jsonrpc.error('Error in importaddress', exc_info=True)
+            raise JsonRpcServerException(
+                code=-4,
+                message="Address already in watch only list"
+            )
+        except exceptions.SerializationError:
+            Logger.jsonrpc.error('Error in importaddress', exc_info=True)
+            raise JsonRpcServerException(
+                code=-5,
+                message="Invalid Bitcoin address"
             )
         return response
 

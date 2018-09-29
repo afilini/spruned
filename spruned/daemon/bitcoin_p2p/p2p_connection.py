@@ -85,6 +85,16 @@ class P2PConnection(BaseConnection):
     def add_success(self):
         self._score += 1
 
+    async def load_bloom_filter(self, filter):
+        self._bloom_filter = filter
+        filter_bytes, hash_function_count, tweak = self._bloom_filter.filter_load_params()
+        flags = 0
+        self.peer.send_msg("filterclear")
+        self.peer.send_msg(
+            "filterload", filter=filter_bytes, hash_function_count=hash_function_count,
+            tweak=tweak, flags=flags
+        )
+
     async def connect(self):
         try:
             async with async_timeout.timeout(self._timeout):
@@ -102,14 +112,6 @@ class P2PConnection(BaseConnection):
                 peer.version = await peer.perform_handshake(**version_data)
                 await self._verify_peer(peer)
                 self.starting_height = peer.version['last_block_index']
-                if self._bloom_filter:
-                    filter_bytes, hash_function_count, tweak = self._bloom_filter.filter_load_params()
-                    flags = 0
-                    peer.send_msg(
-                        "filterload", filter=filter_bytes, hash_function_count=hash_function_count,
-                        tweak=tweak, flags=flags
-                    )
-
                 self._event_handler = PeerEvent(peer)
                 self._version = peer.version
 
@@ -119,6 +121,7 @@ class P2PConnection(BaseConnection):
                 )
                 Logger.p2p.debug('Peer raw response %s', self.version)
                 self.peer = peer
+                self._bloom_filter and await self.load_bloom_filter(self._bloom_filter)
                 self.connected_at = int(time.time())
                 self._setup_events_handler()
         except Exception as e:
@@ -234,7 +237,7 @@ class P2PConnectionPool(BaseConnectionPool):
             peers=peers, network_checker=network_checker, delayer=delayer, ipv6=ipv6,
             loop=loop, use_tor=use_tor, connections=connections, sleep_no_internet=sleep_no_internet
         )
-
+        self._watch_only_addresses = []
         self._pool_filter = None
         self._batcher_factory = batcher
         self._network = network
@@ -243,7 +246,6 @@ class P2PConnectionPool(BaseConnectionPool):
         self.servers_storage = servers_storage
         self._storage_lock = asyncio.Lock()
         self._required_connections = connections
-        self._create_bloom_filter()
         self.best_header = None
         self._on_transaction_hash_callback = []
         self._on_transaction_callback = []
@@ -251,13 +253,19 @@ class P2PConnectionPool(BaseConnectionPool):
     async def set_best_header(self, value):
         self.best_header = value
 
-    def _create_bloom_filter(self):
-        element_count = 1
+    def create_bloom_filter(self):
+        element_count = len(self._watch_only_addresses)
         false_positive_probability = 0.00001
         filter_size = filter_size_required(element_count, false_positive_probability)
         hash_function_count = hash_function_count_required(filter_size, element_count)
         self._pool_filter = BloomFilter(filter_size, hash_function_count=hash_function_count, tweak=1)
-        self._pool_filter.add_address('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')
+        for address in self._watch_only_addresses:
+            self._pool_filter.add_address(address)
+
+    def add_watch_only_addresses(self, *addresses):
+        Logger.p2p.debug('Adding addresses to watchlist: %s', ', '.join(addresses))
+        addresses = list(addresses)
+        self._watch_only_addresses.extend(addresses)
 
     @property
     def required_connections(self):
@@ -283,7 +291,10 @@ class P2PConnectionPool(BaseConnectionPool):
             del l
         return self._connections
 
-    async def connect(self):
+    async def connect(self, load_bloom_filter=True):
+        if not self._pool_filter:
+            self.create_bloom_filter()
+
         await self._check_internet_connectivity()
         self._keepalive = True
         while not self._peers:
@@ -310,9 +321,7 @@ class P2PConnectionPool(BaseConnectionPool):
                 Logger.p2p.warning('Too many connections')
                 connection = self._pick_connection()
                 self.loop.create_task(connection.disconnect())
-            #Logger.p2p.debug(
-            #    'P2PConnectionPool: Sleeping %ss, connected to %s peers', 10, len(self.established_connections)
-            #)
+
             for connection in self._connections:
                 if connection.score <= 0:
                     self.loop.create_task(self._disconnect_peer(connection))
@@ -410,3 +419,12 @@ class P2PConnectionPool(BaseConnectionPool):
             return response
         finally:
             future and future.cancel()
+
+    async def add_address_to_bloom_filter(self, address):
+        """
+        reload the entire bloom filter, advisable for privacy.
+        """
+        self.add_watch_only_addresses(address)
+        self._pool_filter and self._pool_filter.add_address(address)
+        for peer in self.established_connections:
+            self.loop.create_task(peer.load_bloom_filter(self._pool_filter))

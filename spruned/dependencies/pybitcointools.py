@@ -271,3 +271,8 @@ def serialize(txobj):
                     o.append(num_to_var_int(0) * 2)
     o.append(encode(txobj["locktime"], 256, 4)[::-1])
     return b''.join(o)
+
+
+def is_address(addr, prefix):
+    ADDR_RE = re.compile("^[%s][a-km-zA-HJ-NP-Z0-9]{26,33}$" % prefix)
+    return bool(ADDR_RE.match(addr))

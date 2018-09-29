@@ -2,6 +2,8 @@ from spruned.dependencies.pycoinnet.networks import MAINNET, TESTNET, REGTEST
 
 mainnet = {
     'pycoin': MAINNET,
+    'dummy_filter_address': '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
+    'regex_legacy_addresses_prefix': '1',
     'electrum_servers': 'bc_mainnet',
     'electrum_concurrency': 4,
     'tx0': '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b',
@@ -30,6 +32,8 @@ mainnet = {
 testnet = {
     'pycoin': TESTNET,
     'electrum_servers': 'bc_testnet',
+    'dummy_filter_address': 'n3GNqMveyvaPvUbH469vDRadqpJMPc84JA',
+    'regex_legacy_addresses_prefix': 'nm',
     'electrum_concurrency': 1,
     'tx0': '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b',
     'tx1': 'f0315ffc38709d70ad5647e22048358dd3745f3ce3874223c80a7c92fab0c8ba',
@@ -43,5 +47,6 @@ testnet = {
 }
 
 regtest = {
-    'pycoin': REGTEST
+    'pycoin': REGTEST,
+    'dummy_filter_address': 'n3GNqMveyvaPvUbH469vDRadqpJMPc84JA'
 }

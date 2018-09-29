@@ -24,3 +24,11 @@ class SourcesDisagreementException(SprunedException):
 
 class MempoolDisabledException(SprunedException):
     pass
+
+
+class DuplicateError(SprunedException):
+    pass
+
+
+class SerializationError(SprunedException):
+    pass

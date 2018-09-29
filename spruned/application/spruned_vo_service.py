@@ -4,7 +4,7 @@ import binascii
 import itertools
 
 import time
-from pycoin.block import Block
+
 from spruned.application.cache import CacheAgent
 from spruned.application.logging_factory import Logger
 from spruned.application.tools import deserialize_header, script_to_scripthash, ElectrumMerkleVerify
@@ -12,12 +12,12 @@ from spruned.application import exceptions
 from spruned.application.abstracts import RPCAPIService
 from spruned.daemon.bitcoin_p2p.utils import get_block_factory
 from spruned.daemon.exceptions import ElectrodMissingResponseException
-from spruned.dependencies.pybitcointools import deserialize
+from spruned.dependencies.pybitcointools import deserialize, is_address
 
 
 class SprunedVOService(RPCAPIService):
     def __init__(self, electrod, p2p, cache: CacheAgent=None, repository=None,
-                 loop=asyncio.get_event_loop()):
+                 loop=asyncio.get_event_loop(), context=None):
         self.cache = cache
         self.p2p = p2p
         self.electrod = electrod
@@ -25,6 +25,7 @@ class SprunedVOService(RPCAPIService):
         self.loop = loop
         self._last_estimatefee = None
         self.block_factory = get_block_factory()
+        self.context = context
 
     def available(self):
         raise NotImplementedError
@@ -233,7 +234,6 @@ class SprunedVOService(RPCAPIService):
                     "startingheight": peer.starting_height and int(peer.starting_height)
                 }
             )
-            print(response)
         return response
 
     async def getmempoolinfo(self):
@@ -245,3 +245,12 @@ class SprunedVOService(RPCAPIService):
         if not self.repository.mempool:
             raise exceptions.MempoolDisabledException
         return list(self.repository.mempool.get_raw_mempool())
+
+    async def importaddress(self, address):
+        if not is_address(address, self.context.get_network()['regex_legacy_addresses_prefix']):
+            raise exceptions.SerializationError
+        if self.repository.addresses.is_address(address):
+            raise exceptions.DuplicateError
+        self.repository.addresses.save_address(address)
+        self.loop.create_task(self.p2p.add_address_to_bloom_filter(address))
+        return True

@@ -87,7 +87,8 @@ def main():   # pragma: no cover
     from spruned import settings
     from spruned.application.tools import create_directory
     create_directory(ctx, settings.STORAGE_ADDRESS)
-
+    from spruned.application.database import Base, engine
+    Base.metadata.create_all(engine)
     from daemonize import Daemonize
     from spruned.main import main_task
 

@@ -80,3 +80,21 @@ class HeadersRepository(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_headers(self, *blockhashes: str):
         pass  # pragma: no cover
+
+
+class AddressesRepository(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def save_address(self, address: str):
+        pass
+
+    @abc.abstractmethod
+    def is_address(self, address: str):
+        pass
+
+    @abc.abstractmethod
+    def get_addresses(self):
+        pass
+
+    @abc.abstractmethod
+    def remove_address(self, address: str):
+        pass

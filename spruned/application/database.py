@@ -17,8 +17,13 @@ class Header(Base):
     data = Column(String)
 
 
+class Address(Base):
+    __tablename__ = 'addresses'
+    id = Column(Integer, primary_key=True)
+    serialized = Column(String, index=True, unique=True)
+
+
 engine = create_engine('sqlite:///' + settings.SQLITE_DBNAME)
-Base.metadata.create_all(engine)
 
 sqlite = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
 

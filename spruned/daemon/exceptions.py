@@ -47,3 +47,7 @@ class GenesisTransactionRequestedException(SprunedException):
 
 class PeerBlockchainBehindException(SprunedException):
     pass
+
+
+class DuplicateAddressException(SprunedException):
+    pass

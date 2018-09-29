@@ -82,3 +82,6 @@ class P2PInterface:
         return [
             peer for peer in self.pool.established_connections
         ]
+
+    async def add_address_to_bloom_filter(self, address):
+        await self.pool.add_address_to_bloom_filter(address)

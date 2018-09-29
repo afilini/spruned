@@ -20,7 +20,8 @@ def builder(ctx: Context):  # pragma: no cover
         electrod_interface,
         p2p_interface,
         repository=repository,
-        cache=cache
+        cache=cache,
+        context=ctx
     )
     jsonrpc_server = JSONRPCServer(ctx.rpcbind, ctx.rpcport, ctx.rpcuser, ctx.rpcpassword)
     jsonrpc_server.set_vo_service(service)
@@ -36,6 +37,10 @@ def builder(ctx: Context):  # pragma: no cover
 
     blocks_reactor = BlocksReactor(repository, p2p_interface, prune=int(ctx.keep_blocks))
     headers_reactor.add_on_best_height_hit_persistent_callbacks(p2p_connectionpool.set_best_header)
+
+    watch_only_addresses = repository.addresses.get_addresses()
+    watch_only_addresses and p2p_connectionpool.add_watch_only_addresses(*watch_only_addresses) or \
+        p2p_connectionpool.add_watch_only_addresses(*[ctx.get_network()['dummy_filter_address']])
     return jsonrpc_server, headers_reactor, blocks_reactor, repository, cache
 
 

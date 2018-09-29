@@ -1,18 +1,21 @@
 import asyncio
 
 from spruned import settings
+from spruned.application.abstracts import AddressesRepository
 from spruned.application.database import ldb_batch
 from spruned.application.logging_factory import Logger
+from spruned.repositories.addresses_repository import AddressesSQLLiteRepository
 from spruned.repositories.headers_repository import HeadersSQLiteRepository
 from spruned.repositories.blockchain_repository import BlockchainRepository, BLOCK_PREFIX, TRANSACTION_PREFIX
 from spruned.repositories.mempool_repository import MempoolRepository
 
 
 class Repository:
-    def __init__(self, headers, blocks, mempool, keep_blocks=200):
+    def __init__(self, headers, blocks, mempool, addresses, keep_blocks=200):
         self._headers_repository = headers
         self._blockchain_repository = blocks
         self._mempool_repository = mempool
+        self._addresses_repository = addresses
         self.ldb = None
         self.sqlite = None
         self.cache = None
@@ -31,10 +34,15 @@ class Repository:
     def mempool(self) -> (MempoolRepository, None):
         return self._mempool_repository
 
+    @property
+    def addresses(self) -> AddressesRepository:
+        return self._addresses_repository
+
     @classmethod
     def instance(cls):  # pragma: no cover
         from spruned.application import database
         from spruned.application.context import ctx
+        addresses_repository = AddressesSQLLiteRepository(database.sqlite)
         headers_repository = HeadersSQLiteRepository(database.sqlite)
         blocks_repository = BlockchainRepository(
             database.storage_ldb,
@@ -53,6 +61,7 @@ class Repository:
             headers=headers_repository,
             blocks=blocks_repository,
             mempool=mempool_repository,
+            addresses=addresses_repository,
             keep_blocks=ctx.keep_blocks
         )
         i.sqlite = database.sqlite
